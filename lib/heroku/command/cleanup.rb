@@ -20,6 +20,8 @@ class Heroku::Command::Cleanup < Heroku::Command::Base
   private
   def user
     Heroku::Command::Auth.new("").user
+  rescue NoMethodError
+    Heroku::Auth.user
   end
 
 end
