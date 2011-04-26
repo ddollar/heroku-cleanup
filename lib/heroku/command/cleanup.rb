@@ -1,5 +1,11 @@
+# cleanup heroku apps
+#
 class Heroku::Command::Cleanup < Heroku::Command::Base
 
+  # cleanup:mine
+  #
+  # prompt to delete each app you own
+  #
   def mine
     heroku.list.each do |app, owner|
       if owner == user && confirm("Delete #{app} (Y/N)?")
@@ -8,6 +14,10 @@ class Heroku::Command::Cleanup < Heroku::Command::Base
     end
   end
 
+  # cleanup:shared
+  #
+  # prompt to remove collaborator access to any non-heroku.com-owned app
+  #
   def shared
     heroku.list.each do |app, owner|
       next if owner == user
