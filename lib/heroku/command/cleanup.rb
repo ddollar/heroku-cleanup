@@ -1,3 +1,5 @@
+require "yaml"
+
 # cleanup heroku apps
 #
 class Heroku::Command::Cleanup < Heroku::Command::Base
