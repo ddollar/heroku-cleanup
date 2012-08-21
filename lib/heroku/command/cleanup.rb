@@ -4,49 +4,37 @@ require "yaml"
 #
 class Heroku::Command::Cleanup < Heroku::Command::Base
 
-  # cleanup:mine
+  # cleanup
   #
-  # prompt to delete each app you own
+  # clean up apps
   #
-  def mine
-    kept = (settings["keep"] || [])
-    candidates = heroku.list.map do |app, owner|
-      next unless owner == user
-      next if kept.include?(app)
-      [ app, owner ]
-    end.compact
-    candidates.each_with_index do |(app, owner), idx|
-      print "[#{idx+1}/#{candidates.length}] Delete #{app}? [y/n/k] "
+  def index
+    kept = settings["keep"] || []
+    apps = api.get_apps.body.reject { |app| kept.include?(app["name"]) }
+
+    apps.each_with_index do |app, idx|
+      print "[#{idx+1}/#{apps.length}] Delete #{app["name"]}? [y/N/k] "
       case $stdin.gets.chomp.strip.downcase
-        when "y" then heroku.destroy(app)
-        when "k" then keep(app)
+        when "y" then
+          if app["owner_email"] == current_user
+            api.delete_app app["name"]
+          else
+            api.delete_collaborator app["name"], current_user
+          end
+        when "k" then
+          keep app["name"]
       end
     end
-  end
 
-  # cleanup:shared
-  #
-  # prompt to remove collaborator access to any non-heroku.com-owned app
-  #
-  def shared
-    kept = (settings["keep"] || [])
-    candidates = heroku.list.map do |app, owner|
-      next if owner == user
-      next if kept.include?(app)
-      [ app, owner ]
-    end.compact
-    candidates.each_with_index do |(app, owner), idx|
-      print "[#{idx+1}/#{candidates.length}] Remove #{user} from #{app}? [y/n/k] "
-      case $stdin.gets.chomp.strip.downcase
-        when "y" then heroku.remove_collaborator(app, user)
-        when "k" then keep(app)
-      end
+    names = api.get_apps.body.map { |app| app["name"] }
+    (kept - names).each do |name|
+      unkeep name
     end
   end
 
 private
 
-  def user
+  def current_user
     Heroku::Command::Auth.new("").user
   rescue NoMethodError
     Heroku::Auth.user
@@ -70,6 +58,15 @@ private
     set = settings.dup
     set["keep"] ||= []
     set["keep"] << app
+    set["keep"].uniq!
+    set["keep"].sort!
+    write_settings set
+  end
+
+  def unkeep(app)
+    set = settings.dup
+    set["keep"] ||= []
+    set["keep"].delete app
     set["keep"].uniq!
     set["keep"].sort!
     write_settings set
