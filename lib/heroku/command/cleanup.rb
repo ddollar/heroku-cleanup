@@ -13,14 +13,12 @@ class Heroku::Command::Cleanup < Heroku::Command::Base
     apps = api.get_apps.body.reject { |app| kept.include?(app["name"]) }
 
     apps.each_with_index do |app, idx|
-      print "[#{idx+1}/#{apps.length}] Delete #{app["name"]}? [y/N/k] "
+      owner = app["owner_email"] == current_user
+      verb  = owner ? "Delete" : "Remove yourself from"
+      print "[#{idx+1}/#{apps.length}] #{verb} #{app["name"]}? [y/N/k] "
       case $stdin.gets.chomp.strip.downcase
         when "y" then
-          if app["owner_email"] == current_user
-            api.delete_app app["name"]
-          else
-            api.delete_collaborator app["name"], current_user
-          end
+          owner ? api.delete_app(app["name"]) : api.delete_collaborator(app["name"], current_user)
         when "k" then
           keep app["name"]
       end
